@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#8b5365">
+<title>VÂNNHIBABY | Quản lý kho</title>
+<style>
+:root{--ink:#342b2e;--muted:#82767a;--rose:#925c70;--rose2:#f4e8ec;--cream:#fbf8f5;--line:#eee5e2;--green:#36765c;--red:#b34e55;--gold:#9a7541}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:linear-gradient(120deg,#77495d,#a87583);color:white;padding:22px 18px 18px;position:sticky;top:0;z-index:5;box-shadow:0 3px 14px #55334222}
+.brand{font-family:Georgia,serif;font-size:22px;letter-spacing:1.5px;font-weight:bold}.sub{font-size:12px;opacity:.85;margin-top:4px}
+main{max-width:900px;margin:auto;padding:16px 14px 100px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:14px}
+h2{font-size:19px;margin:6px 0 14px}h3{font-size:15px;margin:0 0 10px}
+button,.btn{border:0;border-radius:12px;padding:11px 14px;background:var(--rose);color:white;font-weight:650;font-size:14px;cursor:pointer}
+button.secondary{background:white;color:var(--rose);border:1px solid #e7d5dc}button.danger{background:#fff0f0;color:var(--red);border:1px solid #f0d5d5}button.small{padding:7px 10px;font-size:12px;border-radius:9px}
+nav{display:flex;gap:6px;overflow:auto;padding:10px 12px;background:white;border-bottom:1px solid var(--line);position:sticky;top:72px;z-index:4}
+nav button{white-space:nowrap;background:transparent;color:var(--muted);padding:9px 12px;border-radius:10px}nav button.active{background:var(--rose2);color:var(--rose)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat,.panel,.item{background:white;border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 2px 8px #5b3c4208}
+.stat .label{font-size:12px;color:var(--muted)}.stat strong{display:block;font-size:22px;margin-top:6px}.stat em{font-style:normal;color:var(--muted);font-size:11px}
+.panel{margin:12px 0}.item{margin:9px 0}.itemhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.muted{color:var(--muted);font-size:12px}.pill{display:inline-block;background:var(--rose2);color:var(--rose);border-radius:30px;padding:4px 8px;font-size:11px;margin:3px 3px 0 0}.good{color:var(--green)}.bad{color:var(--red)}
+input,select,textarea{width:100%;border:1px solid #e6dcda;border-radius:11px;padding:11px 12px;font:inherit;background:#fff;color:var(--ink);outline:none}input:focus,select:focus,textarea:focus{border-color:#b98799}label{font-size:12px;color:var(--muted);display:block;margin:10px 0 5px}.row{display:grid;grid-template-columns:1fr 1fr;gap:9px}.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.empty{text-align:center;padding:28px 12px;color:var(--muted)}.search{margin-bottom:10px}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px 7px;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--muted);font-weight:600}
+.hidden{display:none!important}.hint{background:#fff8e9;border:1px solid #f1e2bd;border-radius:12px;padding:11px;font-size:12px;color:#765c2e;margin:10px 0}
+.modal{position:fixed;inset:0;background:#24171dcc;display:flex;align-items:flex-end;justify-content:center;z-index:20;padding:12px}.dialog{background:var(--cream);width:100%;max-width:600px;max-height:92vh;overflow:auto;border-radius:20px;padding:18px}.dialogtop{display:flex;justify-content:space-between;align-items:center}.dialogtop h3{font-size:18px}
+footer{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:9px 14px calc(9px + env(safe-area-inset-bottom));text-align:center;font-size:11px;color:var(--muted);z-index:3}
+@media(min-width:650px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.modal{align-items:center}.dialog{border-radius:20px}}
+</style>
+</head>
+<body>
+<header><div class="brand">VÂNNHIBABY</div><div class="sub">QUẢN LÝ KHO & ĐƠN HÀNG · BẢN OFFLINE</div></header>
+<nav id="nav">
+<button class="active" data-tab="home">Tổng quan</button><button data-tab="products">Sản phẩm</button><button data-tab="stock">Nhập / xuất kho</button><button data-tab="orders">Đơn hàng</button><button data-tab="defects">Hàng lỗi</button><button data-tab="reports">Báo cáo</button><button data-tab="backup">Sao lưu</button>
+</nav>
+<main>
+<section id="home" class="tab">
+<div class="toolbar"><h2>Tổng quan kho hàng</h2><button onclick="openProduct()">＋ Thêm sản phẩm</button></div>
+<div class="grid" id="stats"></div>
+<div class="panel"><h3>⚠️ Size sắp hết hàng</h3><div id="lowstock"></div></div>
+<div class="panel"><h3>Hoạt động gần đây</h3><div id="recent"></div></div>
+</section>
+<section id="products" class="tab hidden">
+<div class="toolbar"><h2>Danh sách sản phẩm</h2><button onclick="openProduct()">＋ Thêm mẫu váy</button></div>
+<input class="search" id="productSearch" placeholder="Tìm tên mẫu hoặc mã sản phẩm…" oninput="renderProducts()"><div id="productList"></div>
+</section>
+<section id="stock" class="tab hidden">
+<div class="toolbar"><h2>Nhập / xuất kho</h2><button onclick="openMovement()">＋ Tạo phiếu</button></div>
+<div class="hint">Nhập kho làm tăng tồn bán được. Xuất kho làm giảm tồn. Không thể xuất quá số lượng hiện có.</div>
+<div id="movementList"></div>
+</section>
+<section id="orders" class="tab hidden">
+<div class="toolbar"><h2>Đơn hàng</h2><button onclick="openOrder()">＋ Tạo đơn</button></div><div id="orderList"></div>
+</section>
+<section id="defects" class="tab hidden">
+<div class="toolbar"><h2>Quản lý hàng lỗi</h2><button onclick="openDefect()">＋ Ghi nhận hàng lỗi</button></div><div id="defectList"></div>
+</section>
+<section id="reports" class="tab hidden">
+<h2>Báo cáo</h2><div class="grid" id="reportStats"></div>
+<div class="panel"><h3>Tồn kho theo mẫu / size</h3><div class="tablewrap" id="stockTable"></div></div>
+<div class="panel"><h3>Doanh thu đơn hàng</h3><div id="salesReport"></div></div>
+</section>
+<section id="backup" class="tab hidden">
+<h2>Sao lưu & dữ liệu</h2>
+<div class="panel"><h3>Sao lưu dữ liệu</h3><p class="muted">Tải toàn bộ sản phẩm, tồn kho, đơn hàng và lịch sử về máy dưới dạng tệp JSON.</p><button onclick="exportBackup()">Tải bản sao lưu</button></div>
+<div class="panel"><h3>Khôi phục dữ liệu</h3><p class="muted">Chọn tệp sao lưu JSON đã tải trước đó. Dữ liệu hiện tại sẽ được thay thế.</p><input type="file" id="restoreFile" accept=".json,application/json"><div class="actions"><button class="secondary" onclick="restoreBackup()">Khôi phục</button></div></div>
+<div class="panel"><h3>Xuất danh sách tồn kho</h3><p class="muted">Tải bảng tồn kho dạng CSV để mở bằng Excel.</p><button class="secondary" onclick="exportCSV()">Xuất CSV</button></div>
+<div class="hint">Lưu ý: dữ liệu được lưu trên trình duyệt của điện thoại này. Không tự đồng bộ sang điện thoại khác. Hãy sao lưu định kỳ và tránh xóa dữ liệu Safari.</div>
+<button class="danger" onclick="clearAll()">Xóa toàn bộ dữ liệu</button>
+</section>
+</main>
+<footer>VÂNNHIBABY · Dữ liệu lưu trên thiết bị này</footer>
+<div id="modal" class="modal hidden" onclick="if(event.target===this)closeModal()"><div class="dialog"><div class="dialogtop"><h3 id="modalTitle"></h3><button class="secondary small" onclick="closeModal()">Đóng</button></div><div id="modalBody"></div></div></div>
+<script>
+const KEY='vannhibaby_inventory_v1';
+let db=load();
+function fresh(){return {products:[],orders:[],movements:[],defects:[],activity:[]}}
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||fresh()}catch(e){return fresh()}}
+function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+function money(n){return (Number(n)||0).toLocaleString('vi-VN')+' ₫'}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function date(){return new Date().toLocaleString('vi-VN',{dateStyle:'short',timeStyle:'short'})}
+function log(msg){db.activity.unshift({id:id(),msg,at:date()});db.activity=db.activity.slice(0,100)}
+function allVariants(){return db.products.flatMap(p=>(p.variants||[]).map(v=>({...v,pid:p.id,pname:p.name})))}
+function variant(pid,vid){let p=db.products.find(x=>x.id===pid);return p?.variants.find(x=>x.id===vid)}
+function showTab(tab){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('hidden',x.id!==tab));document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));renderAll()}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+function openModal(title,body){document.getElementById('modalTitle').textContent=title;document.getElementById('modalBody').innerHTML=body;document.getElementById('modal').classList.remove('hidden')}
+function closeModal(){document.getElementById('modal').classList.add('hidden')}
+function openProduct(pid=null){
+ const p=db.products.find(x=>x.id===pid), sizes=p?.variants?.map(v=>v.size).join(', ')||'S, M, L, XL, XXL, 3XL';
+ openModal(p?'Sửa sản phẩm':'Thêm sản phẩm',`
+ <form id="productForm">
+ <label>Tên mẫu / sản phẩm *</label><input name="name" required value="${esc(p?.name||'')}" placeholder="Ví dụ: Princess Rosalie">
+ <div class="row"><div><label>Mã sản phẩm</label><input name="sku" value="${esc(p?.sku||'')}" placeholder="VN001"></div><div><label>Danh mục</label><input name="category" value="${esc(p?.category||'Váy công chúa')}"></div></div>
+ <label>Ghi chú</label><textarea name="note" rows="2">${esc(p?.note||'')}</textarea>
+ <label>Danh sách size (phân cách bằng dấu phẩy)</label><input name="sizes" value="${esc(sizes)}" placeholder="S, M, L, XL, XXL">
+ <div class="hint">Mỗi size có tồn kho, giá nhập và giá bán riêng. Khi sửa sản phẩm, size cũ được giữ nguyên.</div>
+ <button type="submit" style="width:100%;margin-top:12px">Lưu sản phẩm</button></form>`);
+ document.getElementById('productForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),name=f.get('name').trim(),sku=f.get('sku').trim();if(sku&&db.products.some(x=>x.sku===sku&&x.id!==pid)){alert('Mã sản phẩm đã tồn tại');return}
+ let sizes=[...new Set(f.get('sizes').split(',').map(x=>x.trim()).filter(Boolean))];if(!sizes.length){alert('Vui lòng nhập ít nhất một size');return}
+ if(p){p.name=name;p.sku=sku;p.category=f.get('category');p.note=f.get('note');let old=p.variants;p.variants=sizes.map(s=>old.find(v=>v.size.toLowerCase()===s.toLowerCase())||{id:id(),size:s,stock:0,defective:0,cost:0,price:0})}
+ else{db.products.push({id:id(),name,sku,category:f.get('category'),note:f.get('note'),created:date(),variants:sizes.map(s=>({id:id(),size:s,stock:0,defective:0,cost:0,price:0}))})}
+ log((p?'Cập nhật':'Thêm')+' sản phẩm: '+name);closeModal();save()};
+}
+function renderProducts(){let q=(document.getElementById('productSearch')?.value||'').toLowerCase(),list=db.products.filter(p=>(p.name+' '+p.sku).toLowerCase().includes(q));document.getElementById('productList').innerHTML=list.length?list.map(p=>`<div class="item"><div class="itemhead"><div><b>${esc(p.name)}</b><div class="muted">${esc(p.sku||'Chưa có mã')} · ${esc(p.category||'Chưa phân loại')}</div></div><button class="secondary small" onclick="openProduct('${p.id}')">Sửa</button></div><div style="margin-top:8px">${p.variants.map(v=>`<span class="pill">${esc(v.size)}: ${v.stock} cái</span>`).join('')}</div><div class="actions"><button class="small" onclick="openVariant('${p.id}')">Cập nhật giá / size</button><button class="danger small" onclick="deleteProduct('${p.id}')">Xóa</button></div></div>`).join(''):'<div class="empty">Chưa có sản phẩm. Nhấn “Thêm mẫu váy” để bắt đầu.</div>'}
+function openVariant(pid){let p=db.products.find(x=>x.id===pid);openModal('Giá và tồn kho · '+p.name,`<form id="variantForm">${p.variants.map(v=>`<div class="panel"><b>Size ${esc(v.size)}</b><div class="row"><div><label>Giá nhập (₫)</label><input type="number" min="0" name="cost_${v.id}" value="${v.cost}"></div><div><label>Giá bán (₫)</label><input type="number" min="0" name="price_${v.id}" value="${v.price}"></div></div><div class="muted">Tồn bán được: ${v.stock} · Hàng lỗi: ${v.defective}</div></div>`).join('')}<button style="width:100%">Lưu giá</button></form>`);document.getElementById('variantForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);p.variants.forEach(v=>{v.cost=+f.get('cost_'+v.id)||0;v.price=+f.get('price_'+v.id)||0});log('Cập nhật giá: '+p.name);closeModal();save()}}
+function deleteProduct(pid){let p=db.products.find(x=>x.id===pid);if(!confirm('Xóa '+p.name+'? Chỉ nên xóa khi không còn giao dịch liên quan.'))return;db.products=db.products.filter(x=>x.id!==pid);log('Xóa sản phẩm '+p.name);save()}
+function variantOptions(){return db.products.flatMap(p=>p.variants.map(v=>`<option value="${p.id}|${v.id}">${esc(p.name)} · size ${esc(v.size)} (còn ${v.stock})</option>`)).join('')}
+function openMovement(){if(!allVariants().length){alert('Hãy tạo sản phẩm trước');return}openModal('Tạo phiếu nhập / xuất kho',`<form id="moveForm"><label>Loại phiếu</label><select name="type"><option value="in">Nhập kho</option><option value="out">Xuất kho</option></select><label>Sản phẩm · size</label><select name="item">${variantOptions()}</select><div class="row"><div><label>Số lượng</label><input name="qty" type="number" min="1" required></div><div><label>Giá nhập / đơn vị (₫)</label><input name="cost" type="number" min="0" value="0"></div></div><label>Lý do / ghi chú</label><input name="note" placeholder="Nhập hàng nhà cung cấp…"><button style="width:100%;margin-top:12px">Lưu phiếu</button></form>`);document.getElementById('moveForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),[pid,vid]=f.get('item').split('|'),v=variant(pid,vid),qty=+f.get('qty'),type=f.get('type');if(!qty||qty<1)return;if(type==='out'&&v.stock<qty){alert('Tồn kho không đủ. Hiện chỉ còn '+v.stock);return}v.stock+=type==='in'?qty:-qty;if(type==='in'&&+f.get('cost')>0)v.cost=+f.get('cost');let m={id:id(),type,pid,vid,qty,note:f.get('note'),at:date()};db.movements.unshift(m);log((type==='in'?'Nhập':'Xuất')+' '+qty+' cái · '+v.pname+' size '+v.size);closeModal();save()}}
+function renderMovements(){document.getElementById('movementList').innerHTML=db.movements.length?db.movements.slice(0,100).map(m=>{let v=variant(m.pid,m.vid);return `<div class="item"><b class="${m.type==='in'?'good':'bad'}">${m.type==='in'?'＋ Nhập kho':'－ Xuất kho'} · ${m.qty} cái</b><div>${esc(v?.pname||'Sản phẩm đã xóa')} · size ${esc(v?.size||'')}</div><div class="muted">${esc(m.at)} ${m.note?'· '+esc(m.note):''}</div></div>`}).join(''):'<div class="empty">Chưa có phiếu nhập / xuất kho.</div>'}
+function openOrder(){if(!allVariants().length){alert('Hãy tạo sản phẩm trước');return}openModal('Tạo đơn hàng',`<form id="orderForm"><label>Tên khách hàng</label><input name="customer" placeholder="Tên khách"><label>Số điện thoại</label><input name="phone" inputmode="tel" placeholder="Số điện thoại"><label>Sản phẩm · size</label><select name="item">${variantOptions()}</select><div class="row"><div><label>Số lượng</label><input name="qty" type="number" min="1" value="1" required></div><div><label>Giảm giá (₫)</label><input name="discount" type="number" min="0" value="0"></div></div><label>Phí ship (₫)</label><input name="shipping" type="number" min="0" value="0"><label>Ghi chú</label><input name="note"><div class="hint">Tạo đơn sẽ trừ tồn kho ngay. Kiểm tra sản phẩm và size trước khi lưu.</div><button style="width:100%">Tạo đơn và trừ kho</button></form>`);document.getElementById('orderForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),[pid,vid]=f.get('item').split('|'),v=variant(pid,vid),qty=+f.get('qty');if(!qty||qty<1)return;if(v.stock<qty){alert('Không đủ tồn kho. Hiện còn '+v.stock);return}let gross=v.price*qty,discount=+f.get('discount')||0,total=Math.max(0,gross-discount)+(+f.get('shipping')||0);v.stock-=qty;let o={id:id(),code:'VN'+Date.now().toString().slice(-6),customer:f.get('customer'),phone:f.get('phone'),pid,vid,qty,price:v.price,cost:v.cost,discount,shipping:+f.get('shipping')||0,total,status:'Đã xác nhận',note:f.get('note'),at:date(),stockRestored:false};db.orders.unshift(o);db.movements.unshift({id:id(),type:'out',pid,vid,qty,note:'Đơn '+o.code,at:date()});log('Tạo đơn '+o.code+' · '+o.customer+' · '+total.toLocaleString('vi-VN')+'₫');closeModal();save()}}
+function renderOrders(){document.getElementById('orderList').innerHTML=db.orders.length?db.orders.map(o=>{let v=variant(o.pid,o.vid);return `<div class="item"><div class="itemhead"><div><b>${esc(o.code)}</b><div>${esc(o.customer||'Khách lẻ')} · ${esc(v?.pname||'Sản phẩm')} size ${esc(v?.size||'')} × ${o.qty}</div><div class="muted">${esc(o.at)} · ${esc(o.phone||'')}</div></div><b>${money(o.total)}</b></div><div class="actions"><span class="pill">${esc(o.status)}</span>${!o.stockRestored?`<button class="danger small" onclick="cancelOrder('${o.id}')">Hủy / hoàn kho</button>`:'<span class="muted">Đã hoàn kho</span>'}</div></div>`}).join(''):'<div class="empty">Chưa có đơn hàng.</div>'}
+function cancelOrder(oid){let o=db.orders.find(x=>x.id===oid);if(o.stockRestored)return;if(!confirm('Hủy đơn và cộng lại '+o.qty+' sản phẩm vào kho?'))return;let v=variant(o.pid,o.vid);if(v)v.stock+=o.qty;o.stockRestored=true;o.status='Đã hủy';db.movements.unshift({id:id(),type:'in',pid:o.pid,vid:o.vid,qty:o.qty,note:'Hoàn kho đơn '+o.code,at:date()});log('Hủy đơn '+o.code+' và hoàn kho');save()}
+function openDefect(){if(!allVariants().length){alert('Hãy tạo sản phẩm trước');return}openModal('Ghi nhận hàng lỗi',`<form id="defectForm"><label>Sản phẩm · size</label><select name="item">${variantOptions()}</select><div class="row"><div><label>Số lượng lỗi</label><input name="qty" type="number" min="1" required></div><div><label>Loại lỗi</label><select name="reason"><option>Rách / thủng</option><option>Bẩn / ố màu</option><option>Lỗi đường may</option><option>Thiếu phụ kiện</option><option>Khác</option></select></div></div><label>Ghi chú</label><input name="note"><div class="hint">Số lượng sẽ được chuyển từ tồn bán được sang hàng lỗi.</div><button style="width:100%">Lưu hàng lỗi</button></form>`);document.getElementById('defectForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),[pid,vid]=f.get('item').split('|'),v=variant(pid,vid),qty=+f.get('qty');if(v.stock<qty){alert('Tồn bán được không đủ');return}v.stock-=qty;v.defective+=qty;db.defects.unshift({id:id(),pid,vid,qty,reason:f.get('reason'),note:f.get('note'),status:'Chờ xử lý',at:date()});log('Ghi nhận '+qty+' hàng lỗi · '+v.pname+' size '+v.size);closeModal();save()}}
+function repairDefect(did){let d=db.defects.find(x=>x.id===did);if(d.status!=='Chờ xử lý')return;let v=variant(d.pid,d.vid);if(v){v.defective-=d.qty;v.stock+=d.qty}d.status='Đã sửa, nhập lại kho';log('Sửa hàng lỗi và nhập lại kho '+d.qty+' cái');save()}
+function writeOff(did){let d=db.defects.find(x=>x.id===did);if(d.status!=='Chờ xử lý')return;let v=variant(d.pid,d.vid);if(v)v.defective-=d.qty;d.status='Đã hủy bỏ';log('Hủy bỏ hàng lỗi '+d.qty+' cái');save()}
+function renderDefects(){document.getElementById('defectList').innerHTML=db.defects.length?db.defects.map(d=>{let v=variant(d.pid,d.vid);return `<div class="item"><div class="itemhead"><b>${esc(v?.pname||'Sản phẩm')} · size ${esc(v?.size||'')} × ${d.qty}</b><span class="pill">${esc(d.status)}</span></div><div class="muted">${esc(d.reason)} · ${esc(d.at)} ${d.note?'· '+esc(d.note):''}</div>${d.status==='Chờ xử lý'?`<div class="actions"><button class="small" onclick="repairDefect('${d.id}')">Đã sửa, nhập lại kho</button><button class="danger small" onclick="writeOff('${d.id}')">Hủy bỏ</button></div>`:''}</div>`}).join(''):'<div class="empty">Chưa ghi nhận hàng lỗi.</div>'}
+function renderHome(){let vars=allVariants(),qty=vars.reduce((s,v)=>s+v.stock,0),def=vars.reduce((s,v)=>s+v.defective,0),low=vars.filter(v=>v.stock<=3&&v.stock>=0);document.getElementById('stats').innerHTML=`<div class="stat"><div class="label">Mẫu sản phẩm</div><strong>${db.products.length}</strong></div><div class="stat"><div class="label">Tồn bán được</div><strong>${qty}</strong><em>cái</em></div><div class="stat"><div class="label">Hàng lỗi</div><strong>${def}</strong><em>cái</em></div><div class="stat"><div class="label">Đơn hàng</div><strong>${db.orders.length}</strong></div>`;document.getElementById('lowstock').innerHTML=low.length?low.map(v=>`<div class="muted">${esc(v.pname)} · size ${esc(v.size)}: <b class="${v.stock===0?'bad':''}">${v.stock} cái</b></div>`).join(''):'<div class="muted">Chưa có size nào dưới hoặc bằng 3 cái.</div>';document.getElementById('recent').innerHTML=db.activity.length?db.activity.slice(0,8).map(a=>`<div class="muted" style="padding:7px 0;border-bottom:1px solid var(--line)">${esc(a.msg)}<br><small>${esc(a.at)}</small></div>`).join(''):'<div class="muted">Chưa có hoạt động.</div>'}
+function renderReports(){let revenue=db.orders.filter(o=>!o.stockRestored).reduce((s,o)=>s+o.total,0),cost=db.orders.filter(o=>!o.stockRestored).reduce((s,o)=>s+o.cost*o.qty,0),profit=revenue-cost;document.getElementById('reportStats').innerHTML=`<div class="stat"><div class="label">Doanh thu đơn chưa hủy</div><strong>${money(revenue)}</strong></div><div class="stat"><div class="label">Giá vốn hàng đã bán</div><strong>${money(cost)}</strong></div><div class="stat"><div class="label">Lãi gộp ước tính</div><strong>${money(profit)}</strong></div><div class="stat"><div class="label">Số đơn chưa hủy</div><strong>${db.orders.filter(o=>!o.stockRestored).length}</strong></div>`;document.getElementById('stockTable').innerHTML=`<table><thead><tr><th>Mẫu</th><th>Size</th><th>Tồn</th><th>Lỗi</th><th>Giá bán</th></tr></thead><tbody>${allVariants().map(v=>`<tr><td>${esc(v.pname)}</td><td>${esc(v.size)}</td><td>${v.stock}</td><td>${v.defective}</td><td>${money(v.price)}</td></tr>`).join('')}</tbody></table>`;document.getElementById('salesReport').innerHTML=db.orders.length?db.orders.map(o=>`<div class="muted" style="padding:5px 0">${esc(o.code)} · ${esc(o.customer||'Khách lẻ')} · ${money(o.total)} ${o.stockRestored?'(đã hủy)':''}</div>`).join(''):'<div class="muted">Chưa có dữ liệu doanh thu.</div>'}
+function renderAll(){renderHome();renderProducts();renderMovements();renderOrders();renderDefects();renderReports()}
+function exportBackup(){let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='VANNHIBABY-sao-luu-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
+function restoreBackup(){let f=document.getElementById('restoreFile').files[0];if(!f){alert('Chọn tệp sao lưu trước');return}let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.products)||!Array.isArray(d.orders))throw Error();if(!confirm('Thay thế dữ liệu hiện tại bằng bản sao lưu?'))return;db={...fresh(),...d};save();alert('Khôi phục thành công')}catch(e){alert('Tệp sao lưu không hợp lệ')}};r.readAsText(f)}
+function exportCSV(){let rows=[['Mẫu','Mã','Size','Tồn bán được','Hàng lỗi','Giá nhập','Giá bán'],...allVariants().map(v=>[v.pname,'',v.size,v.stock,v.defective,v.cost,v.price])];let csv='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ton-kho-vannhibaby.csv';a.click();URL.revokeObjectURL(a.href)}
+function clearAll(){if(!confirm('Bạn chắc chắn muốn xóa TOÀN BỘ sản phẩm, đơn hàng và lịch sử? Hãy sao lưu trước.'))return;db=fresh();save()}
+renderAll();
+</script>
+</body></html>

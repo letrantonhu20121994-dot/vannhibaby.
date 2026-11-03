@@ -108,15 +108,93 @@ function deleteProduct(pid){let p=db.products.find(x=>x.id===pid);if(!confirm('X
 function variantOptions(){return db.products.flatMap(p=>p.variants.map(v=>`<option value="${p.id}|${v.id}">${esc(p.name)} · size ${esc(v.size)} (còn ${v.stock})</option>`)).join('')}
 function openMovement(){if(!allVariants().length){alert('Hãy tạo sản phẩm trước');return}openModal('Tạo phiếu nhập / xuất kho',`<form id="moveForm"><label>Loại phiếu</label><select name="type"><option value="in">Nhập kho</option><option value="out">Xuất kho</option></select><label>Sản phẩm · size</label><select name="item">${variantOptions()}</select><div class="row"><div><label>Số lượng</label><input name="qty" type="number" min="1" required></div><div><label>Giá nhập / đơn vị (₫)</label><input name="cost" type="number" min="0" value="0"></div></div><label>Lý do / ghi chú</label><input name="note" placeholder="Nhập hàng nhà cung cấp…"><button style="width:100%;margin-top:12px">Lưu phiếu</button></form>`);document.getElementById('moveForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),[pid,vid]=f.get('item').split('|'),v=variant(pid,vid),qty=+f.get('qty'),type=f.get('type');if(!qty||qty<1)return;if(type==='out'&&v.stock<qty){alert('Tồn kho không đủ. Hiện chỉ còn '+v.stock);return}v.stock+=type==='in'?qty:-qty;if(type==='in'&&+f.get('cost')>0)v.cost=+f.get('cost');let m={id:id(),type,pid,vid,qty,note:f.get('note'),at:date()};db.movements.unshift(m);log((type==='in'?'Nhập':'Xuất')+' '+qty+' cái · '+v.pname+' size '+v.size);closeModal();save()}}
 function renderMovements(){document.getElementById('movementList').innerHTML=db.movements.length?db.movements.slice(0,100).map(m=>{let v=variant(m.pid,m.vid);return `<div class="item"><b class="${m.type==='in'?'good':'bad'}">${m.type==='in'?'＋ Nhập kho':'－ Xuất kho'} · ${m.qty} cái</b><div>${esc(v?.pname||'Sản phẩm đã xóa')} · size ${esc(v?.size||'')}</div><div class="muted">${esc(m.at)} ${m.note?'· '+esc(m.note):''}</div></div>`}).join(''):'<div class="empty">Chưa có phiếu nhập / xuất kho.</div>'}
-function openOrder(){if(!allVariants().length){alert('Hãy tạo sản phẩm trước');return}openModal('Tạo đơn hàng',`<form id="orderForm"><label>Tên khách hàng</label><input name="customer" placeholder="Tên khách"><label>Số điện thoại</label><input name="phone" inputmode="tel" placeholder="Số điện thoại"><label>Sản phẩm · size</label><select name="item">${variantOptions()}</select><div class="row"><div><label>Số lượng</label><input name="qty" type="number" min="1" value="1" required></div><div><label>Giảm giá (₫)</label><input name="discount" type="number" min="0" value="0"></div></div><label>Phí ship (₫)</label><input name="shipping" type="number" min="0" value="0"><label>Ghi chú</label><input name="note"><div class="hint">Tạo đơn sẽ trừ tồn kho ngay. Kiểm tra sản phẩm và size trước khi lưu.</div><button style="width:100%">Tạo đơn và trừ kho</button></form>`);document.getElementById('orderForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),[pid,vid]=f.get('item').split('|'),v=variant(pid,vid),qty=+f.get('qty');if(!qty||qty<1)return;if(v.stock<qty){alert('Không đủ tồn kho. Hiện còn '+v.stock);return}let gross=v.price*qty,discount=+f.get('discount')||0,total=Math.max(0,gross-discount)+(+f.get('shipping')||0);v.stock-=qty;let o={id:id(),code:'VN'+Date.now().toString().slice(-6),customer:f.get('customer'),phone:f.get('phone'),pid,vid,qty,price:v.price,cost:v.cost,discount,shipping:+f.get('shipping')||0,total,status:'Đã xác nhận',note:f.get('note'),at:date(),stockRestored:false};db.orders.unshift(o);db.movements.unshift({id:id(),type:'out',pid,vid,qty,note:'Đơn '+o.code,at:date()});log('Tạo đơn '+o.code+' · '+o.customer+' · '+total.toLocaleString('vi-VN')+'₫');closeModal();save()}}
-function renderOrders(){document.getElementById('orderList').innerHTML=db.orders.length?db.orders.map(o=>{let v=variant(o.pid,o.vid);return `<div class="item"><div class="itemhead"><div><b>${esc(o.code)}</b><div>${esc(o.customer||'Khách lẻ')} · ${esc(v?.pname||'Sản phẩm')} size ${esc(v?.size||'')} × ${o.qty}</div><div class="muted">${esc(o.at)} · ${esc(o.phone||'')}</div></div><b>${money(o.total)}</b></div><div class="actions"><span class="pill">${esc(o.status)}</span>${!o.stockRestored?`<button class="danger small" onclick="cancelOrder('${o.id}')">Hủy / hoàn kho</button>`:'<span class="muted">Đã hoàn kho</span>'}</div></div>`}).join(''):'<div class="empty">Chưa có đơn hàng.</div>'}
-function cancelOrder(oid){let o=db.orders.find(x=>x.id===oid);if(o.stockRestored)return;if(!confirm('Hủy đơn và cộng lại '+o.qty+' sản phẩm vào kho?'))return;let v=variant(o.pid,o.vid);if(v)v.stock+=o.qty;o.stockRestored=true;o.status='Đã hủy';db.movements.unshift({id:id(),type:'in',pid:o.pid,vid:o.vid,qty:o.qty,note:'Hoàn kho đơn '+o.code,at:date()});log('Hủy đơn '+o.code+' và hoàn kho');save()}
+function orderItems(o){
+ if(Array.isArray(o.items)&&o.items.length)return o.items;
+ return o.pid&&o.vid?[{pid:o.pid,vid:o.vid,qty:o.qty||1,price:o.price||0,cost:o.cost||0}]:[];
+}
+function orderCost(o){return orderItems(o).reduce((s,it)=>s+(Number(it.cost)||0)*(Number(it.qty)||0),0)}
+function orderGross(o){return orderItems(o).reduce((s,it)=>s+(Number(it.price)||0)*(Number(it.qty)||0),0)}
+function addOrderItem(){
+ const wrap=document.getElementById('orderItems');
+ const row=document.createElement('div');
+ row.className='order-line item';
+ row.innerHTML=`<div class="itemhead"><b>Sản phẩm</b><button type="button" class="danger small remove-order-line">Xóa</button></div><label>Sản phẩm · size</label><select name="item">${variantOptions()}</select><label>Số lượng</label><input name="qty" type="number" min="1" value="1" required>`;
+ row.querySelector('.remove-order-line').onclick=()=>{if(wrap.querySelectorAll('.order-line').length>1)row.remove();else alert('Đơn hàng cần ít nhất một sản phẩm')};
+ wrap.appendChild(row);
+}
+function openOrder(){
+ if(!allVariants().length){alert('Hãy tạo sản phẩm trước');return}
+ openModal('Tạo đơn hàng',`<form id="orderForm">
+ <label>Tên khách hàng</label><input name="customer" placeholder="Tên khách">
+ <label>Số điện thoại</label><input name="phone" inputmode="tel" placeholder="Số điện thoại">
+ <label>Địa chỉ nhận hàng</label><textarea name="address" rows="2" placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"></textarea>
+ <div class="item"><div class="itemhead"><b>Danh sách sản phẩm trong đơn</b><button type="button" class="secondary small" id="addOrderItem">＋ Thêm sản phẩm</button></div><div id="orderItems">
+ <div class="order-line"><label>Sản phẩm · size</label><select name="item">${variantOptions()}</select><label>Số lượng</label><input name="qty" type="number" min="1" value="1" required></div>
+ </div></div>
+ <div class="row"><div><label>Giảm giá (₫)</label><input name="discount" type="number" min="0" value="0"></div><div><label>Phí ship (₫)</label><input name="shipping" type="number" min="0" value="0"></div></div>
+ <label>Ghi chú</label><textarea name="note" rows="2" placeholder="Ghi chú đơn hàng"></textarea>
+ <div class="hint">Có thể thêm nhiều sản phẩm/size vào cùng một đơn. Khi lưu, hệ thống kiểm tra tồn của tất cả sản phẩm rồi mới trừ kho.</div>
+ <button style="width:100%">Tạo đơn và trừ kho</button></form>`);
+ const form=document.getElementById('orderForm');
+ document.getElementById('addOrderItem').onclick=addOrderItem;
+ form.onsubmit=e=>{
+  e.preventDefault();
+  const f=new FormData(form),rows=[...form.querySelectorAll('.order-line')],items=[];
+  for(const row of rows){
+   const [pid,vid]=row.querySelector('[name="item"]').value.split('|');
+   const qty=Number(row.querySelector('[name="qty"]').value),v=variant(pid,vid);
+   if(!v||!Number.isInteger(qty)||qty<1){alert('Kiểm tra sản phẩm và số lượng từng dòng');return}
+   items.push({pid,vid,qty,price:Number(v.price)||0,cost:Number(v.cost)||0,pname:v.pname,size:v.size});
+  }
+  const needed={};
+  items.forEach(it=>{const k=it.pid+'|'+it.vid;needed[k]=(needed[k]||0)+it.qty});
+  for(const [k,qty] of Object.entries(needed)){
+   const [pid,vid]=k.split('|'),v=variant(pid,vid);
+   if(!v||v.stock<qty){alert('Không đủ tồn kho cho '+(v?.pname||'sản phẩm')+' size '+(v?.size||'')+'. Cần '+qty+', hiện còn '+(v?.stock??0));return}
+  }
+  const discount=Math.max(0,Number(f.get('discount'))||0),shipping=Math.max(0,Number(f.get('shipping'))||0);
+  const gross=items.reduce((s,it)=>s+it.price*it.qty,0),total=Math.max(0,gross-discount)+shipping;
+  items.forEach(it=>{
+   const v=variant(it.pid,it.vid);v.stock-=it.qty;
+   db.movements.unshift({id:id(),type:'out',pid:it.pid,vid:it.vid,qty:it.qty,note:'Đơn đang tạo',at:date()});
+  });
+  const code='VN'+Date.now().toString().slice(-6);
+  db.movements.filter(m=>m.note==='Đơn đang tạo').slice(0,items.length).forEach(m=>m.note='Đơn '+code);
+  const o={id:id(),code,customer:f.get('customer'),phone:f.get('phone'),address:f.get('address'),items,discount,shipping,total,status:'Đã xác nhận',note:f.get('note'),at:date(),stockRestored:false};
+  db.orders.unshift(o);
+  log('Tạo đơn '+o.code+' · '+(o.customer||'Khách lẻ')+' · '+items.length+' dòng sản phẩm · '+total.toLocaleString('vi-VN')+'₫');
+  closeModal();save();
+ };
+}
+function renderOrders(){
+ document.getElementById('orderList').innerHTML=db.orders.length?db.orders.map(o=>{
+  const items=orderItems(o),itemText=items.map(it=>{const v=variant(it.pid,it.vid);return `${esc(v?.pname||it.pname||'Sản phẩm')} · size ${esc(v?.size||it.size||'')} × ${it.qty}`}).join('<br>');
+  return `<div class="item"><div class="itemhead"><div><b>${esc(o.code)}</b><div>${esc(o.customer||'Khách lẻ')}</div><div class="muted">${esc(o.phone||'')} · ${esc(o.at)}</div></div><b>${money(o.total)}</b></div>
+  ${o.address?`<div class="muted" style="margin-top:7px">📍 ${esc(o.address)}</div>`:''}
+  <div style="margin-top:8px">${itemText}</div>
+  ${o.note?`<div class="muted" style="margin-top:6px">Ghi chú: ${esc(o.note)}</div>`:''}
+  <div class="muted" style="margin-top:6px">Giảm giá: ${money(o.discount||0)} · Phí ship: ${money(o.shipping||0)}</div>
+  <div class="actions"><span class="pill">${esc(o.status)}</span>${!o.stockRestored?`<button class="danger small" onclick="cancelOrder('${o.id}')">Hủy / hoàn kho</button>`:'<span class="muted">Đã hoàn kho</span>'}</div></div>`;
+ }).join(''):'<div class="empty">Chưa có đơn hàng.</div>';
+}
+function cancelOrder(oid){
+ const o=db.orders.find(x=>x.id===oid);if(!o||o.stockRestored)return;
+ const items=orderItems(o);
+ const qtyText=items.reduce((s,it)=>s+(Number(it.qty)||0),0);
+ if(!confirm('Hủy đơn và cộng lại '+qtyText+' sản phẩm vào kho?'))return;
+ items.forEach(it=>{
+  const v=variant(it.pid,it.vid);if(v)v.stock+=Number(it.qty)||0;
+  db.movements.unshift({id:id(),type:'in',pid:it.pid,vid:it.vid,qty:it.qty,note:'Hoàn kho đơn '+o.code,at:date()});
+ });
+ o.stockRestored=true;o.status='Đã hủy';
+ log('Hủy đơn '+o.code+' và hoàn kho');save();
+}
 function openDefect(){if(!allVariants().length){alert('Hãy tạo sản phẩm trước');return}openModal('Ghi nhận hàng lỗi',`<form id="defectForm"><label>Sản phẩm · size</label><select name="item">${variantOptions()}</select><div class="row"><div><label>Số lượng lỗi</label><input name="qty" type="number" min="1" required></div><div><label>Loại lỗi</label><select name="reason"><option>Rách / thủng</option><option>Bẩn / ố màu</option><option>Lỗi đường may</option><option>Thiếu phụ kiện</option><option>Khác</option></select></div></div><label>Ghi chú</label><input name="note"><div class="hint">Số lượng sẽ được chuyển từ tồn bán được sang hàng lỗi.</div><button style="width:100%">Lưu hàng lỗi</button></form>`);document.getElementById('defectForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),[pid,vid]=f.get('item').split('|'),v=variant(pid,vid),qty=+f.get('qty');if(v.stock<qty){alert('Tồn bán được không đủ');return}v.stock-=qty;v.defective+=qty;db.defects.unshift({id:id(),pid,vid,qty,reason:f.get('reason'),note:f.get('note'),status:'Chờ xử lý',at:date()});log('Ghi nhận '+qty+' hàng lỗi · '+v.pname+' size '+v.size);closeModal();save()}}
 function repairDefect(did){let d=db.defects.find(x=>x.id===did);if(d.status!=='Chờ xử lý')return;let v=variant(d.pid,d.vid);if(v){v.defective-=d.qty;v.stock+=d.qty}d.status='Đã sửa, nhập lại kho';log('Sửa hàng lỗi và nhập lại kho '+d.qty+' cái');save()}
 function writeOff(did){let d=db.defects.find(x=>x.id===did);if(d.status!=='Chờ xử lý')return;let v=variant(d.pid,d.vid);if(v)v.defective-=d.qty;d.status='Đã hủy bỏ';log('Hủy bỏ hàng lỗi '+d.qty+' cái');save()}
 function renderDefects(){document.getElementById('defectList').innerHTML=db.defects.length?db.defects.map(d=>{let v=variant(d.pid,d.vid);return `<div class="item"><div class="itemhead"><b>${esc(v?.pname||'Sản phẩm')} · size ${esc(v?.size||'')} × ${d.qty}</b><span class="pill">${esc(d.status)}</span></div><div class="muted">${esc(d.reason)} · ${esc(d.at)} ${d.note?'· '+esc(d.note):''}</div>${d.status==='Chờ xử lý'?`<div class="actions"><button class="small" onclick="repairDefect('${d.id}')">Đã sửa, nhập lại kho</button><button class="danger small" onclick="writeOff('${d.id}')">Hủy bỏ</button></div>`:''}</div>`}).join(''):'<div class="empty">Chưa ghi nhận hàng lỗi.</div>'}
 function renderHome(){let vars=allVariants(),qty=vars.reduce((s,v)=>s+v.stock,0),def=vars.reduce((s,v)=>s+v.defective,0),low=vars.filter(v=>v.stock<=3&&v.stock>=0);document.getElementById('stats').innerHTML=`<div class="stat"><div class="label">Mẫu sản phẩm</div><strong>${db.products.length}</strong></div><div class="stat"><div class="label">Tồn bán được</div><strong>${qty}</strong><em>cái</em></div><div class="stat"><div class="label">Hàng lỗi</div><strong>${def}</strong><em>cái</em></div><div class="stat"><div class="label">Đơn hàng</div><strong>${db.orders.length}</strong></div>`;document.getElementById('lowstock').innerHTML=low.length?low.map(v=>`<div class="muted">${esc(v.pname)} · size ${esc(v.size)}: <b class="${v.stock===0?'bad':''}">${v.stock} cái</b></div>`).join(''):'<div class="muted">Chưa có size nào dưới hoặc bằng 3 cái.</div>';document.getElementById('recent').innerHTML=db.activity.length?db.activity.slice(0,8).map(a=>`<div class="muted" style="padding:7px 0;border-bottom:1px solid var(--line)">${esc(a.msg)}<br><small>${esc(a.at)}</small></div>`).join(''):'<div class="muted">Chưa có hoạt động.</div>'}
-function renderReports(){let revenue=db.orders.filter(o=>!o.stockRestored).reduce((s,o)=>s+o.total,0),cost=db.orders.filter(o=>!o.stockRestored).reduce((s,o)=>s+o.cost*o.qty,0),profit=revenue-cost;document.getElementById('reportStats').innerHTML=`<div class="stat"><div class="label">Doanh thu đơn chưa hủy</div><strong>${money(revenue)}</strong></div><div class="stat"><div class="label">Giá vốn hàng đã bán</div><strong>${money(cost)}</strong></div><div class="stat"><div class="label">Lãi gộp ước tính</div><strong>${money(profit)}</strong></div><div class="stat"><div class="label">Số đơn chưa hủy</div><strong>${db.orders.filter(o=>!o.stockRestored).length}</strong></div>`;document.getElementById('stockTable').innerHTML=`<table><thead><tr><th>Mẫu</th><th>Size</th><th>Tồn</th><th>Lỗi</th><th>Giá bán</th></tr></thead><tbody>${allVariants().map(v=>`<tr><td>${esc(v.pname)}</td><td>${esc(v.size)}</td><td>${v.stock}</td><td>${v.defective}</td><td>${money(v.price)}</td></tr>`).join('')}</tbody></table>`;document.getElementById('salesReport').innerHTML=db.orders.length?db.orders.map(o=>`<div class="muted" style="padding:5px 0">${esc(o.code)} · ${esc(o.customer||'Khách lẻ')} · ${money(o.total)} ${o.stockRestored?'(đã hủy)':''}</div>`).join(''):'<div class="muted">Chưa có dữ liệu doanh thu.</div>'}
+function renderReports(){let revenue=db.orders.filter(o=>!o.stockRestored).reduce((s,o)=>s+o.total,0),cost=db.orders.filter(o=>!o.stockRestored).reduce((s,o)=>s+orderCost(o),0),profit=revenue-cost;document.getElementById('reportStats').innerHTML=`<div class="stat"><div class="label">Doanh thu đơn chưa hủy</div><strong>${money(revenue)}</strong></div><div class="stat"><div class="label">Giá vốn hàng đã bán</div><strong>${money(cost)}</strong></div><div class="stat"><div class="label">Lãi gộp ước tính</div><strong>${money(profit)}</strong></div><div class="stat"><div class="label">Số đơn chưa hủy</div><strong>${db.orders.filter(o=>!o.stockRestored).length}</strong></div>`;document.getElementById('stockTable').innerHTML=`<table><thead><tr><th>Mẫu</th><th>Size</th><th>Tồn</th><th>Lỗi</th><th>Giá bán</th></tr></thead><tbody>${allVariants().map(v=>`<tr><td>${esc(v.pname)}</td><td>${esc(v.size)}</td><td>${v.stock}</td><td>${v.defective}</td><td>${money(v.price)}</td></tr>`).join('')}</tbody></table>`;document.getElementById('salesReport').innerHTML=db.orders.length?db.orders.map(o=>`<div class="muted" style="padding:5px 0">${esc(o.code)} · ${esc(o.customer||'Khách lẻ')} · ${money(o.total)} ${o.stockRestored?'(đã hủy)':''}</div>`).join(''):'<div class="muted">Chưa có dữ liệu doanh thu.</div>'}
 function renderAll(){renderHome();renderProducts();renderMovements();renderOrders();renderDefects();renderReports()}
 function exportBackup(){let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='VANNHIBABY-sao-luu-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
 function restoreBackup(){let f=document.getElementById('restoreFile').files[0];if(!f){alert('Chọn tệp sao lưu trước');return}let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.products)||!Array.isArray(d.orders))throw Error();if(!confirm('Thay thế dữ liệu hiện tại bằng bản sao lưu?'))return;db={...fresh(),...d};save();alert('Khôi phục thành công')}catch(e){alert('Tệp sao lưu không hợp lệ')}};r.readAsText(f)}
